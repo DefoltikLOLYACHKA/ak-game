@@ -42,17 +42,17 @@ app.post("/", async (req, res) => {
             selectedProfile: req.body.uuid,
             serverId: req.body.uuid
         })
-        .then(res => {
-            console.log(`Mojang API Response: ${JSON.stringify(res.data)}`);
-            if (res.data && res.data.path === "/session/minecraft/join") {
-                return "Non-License";
-            } else if (res.status === 200) {
-                return "License";
-            } else {
-                return `Unexpected status: ${res.status}`;
-            }
-        })
-        .catch(error => {
+       .then(res => {
+    if (res.status === 204) {
+        console.log("License verified successfully, but no content returned.");
+        return "License";
+    } else if (res.data && res.data.path === "/session/minecraft/join") {
+        return "Non-License";
+    }else {
+        console.log(`Unexpected status: ${res.status}`);
+        return `Unexpected status: ${res.status}`;
+    }
+}).catch(error => {
             console.error(`Request failed with error: ${error.message}`);
             if (error.response) {
                 console.error(`Response data: ${JSON.stringify(error.response.data)}`);
